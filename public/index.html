@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Магазин Квітів</title>
+    <style>
+        :root { --primary: #e91e63; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: #333; }
+        header { background: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .logo { font-size: 24px; font-weight: bold; color: var(--primary); }
+        .nav-btns button { margin-left: 10px; padding: 8px 16px; border: none; background: var(--primary); color: #fff; border-radius: 4px; cursor: pointer; }
+        .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; padding-bottom: 15px; position: relative; }
+        .card img { width: 100%; height: 200px; object-fit: cover; }
+        .card h3 { margin: 15px 0 5px; }
+        .card .price { color: var(--primary); font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .card button { background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        .btn-delete { background: #dc3545 !important; margin-top: 5px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 450px; position: relative; max-height: 90vh; overflow-y: auto; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .close { position: absolute; right: 15px; top: 10px; cursor: pointer; font-size: 20px; }
+        .admin-panel, .orders-panel { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">🌸 FlowerShop</div>
+    <div class="nav-btns" id="navAuth">
+        <button onclick="openModal('loginModal')">Увійти</button>
+        <button onclick="openModal('regModal')">Реєстрація</button>
+    </div>
+</header>
+
+<div class="container">
+    <h2>Каталог Квітів</h2>
+    <div class="grid" id="productsGrid"></div>
+
+    <!-- Мої замовлення -->
+    <div id="userOrders" class="orders-panel" style="display:none;">
+        <h3>Мої замовлення</h3>
+        <div id="myOrdersList"></div>
+    </div>
+
+    <!-- Адмін Панель -->
+    <div id="adminSection" class="admin-panel" style="display:none;">
+        <h2 style="color: var(--primary);">Адмін-Панель Керування</h2>
+        
+        <h3>Додати новий товар</h3>
+        <input type="text" id="newTitle" placeholder="Назва квітки">
+        <input type="number" id="newPrice" placeholder="Ціна (грн)">
+        <input type="text" id="newImage" placeholder="URL зображення">
+        <button onclick="addProduct()" style="background:#28a745; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">Додати товар</button>
+
+        <h3>Всі замовлення клієнтів</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Клієнт</th>
+                    <th>Сума</th>
+                    <th>Доставка</th>
+                    <th>Адреса / Відділення</th>
+                    <th>Дата та час</th>
+                    <th>Оплата</th>
+                </tr>
+            </thead>
+            <tbody id="adminOrdersTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Модальне вікно Оформлення замовлення -->
+<div id="orderModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('orderModal')">&times;</span>
+        <h3>Оформлення замовлення</h3>
+        <p id="orderProductInfo" style="font-weight:bold; color:var(--primary);"></p>
+
+        <label>Спосіб доставки:</label>
+        <select id="deliveryType" onchange="toggleDeliveryInputs()">
+            <option value="Нова Пошта (Відділення/Поштомат)">Нова Пошта (Відділення / Поштомат)</option>
+            <option value="Кур'єр Нової Пошти">Кур'єр Нової Пошти до дверей</option>
+        </select>
+
+        <label id="addressLabel">Номер відділення / поштомату та місто:</label>
+        <input type="text" id="deliveryAddress" placeholder="Наприклад: м. Київ, Відділення №15">
+
+        <label>Бажана дата доставки:</label>
+        <input type="date" id="deliveryDate">
+
+        <label>Бажаний час доставки:</label>
+        <input type="time" id="deliveryTime">
+
+        <label>Спосіб оплати:</label>
+        <select id="paymentMethod">
+            <option value="Готівка при отриманні">Готівка при отриманні</option>
+            <option value="Оплата картою (Онлайн)">Оплата картою (Онлайн)</option>
+        </select>
+
+        <button onclick="submitOrder()" style="width:100%; background:#28a745; color:white; border:none; padding:12px; margin-top:15px; border-radius:4px; cursor:pointer; font-size:16px;">Підтвердити замовлення</button>
+    </div>
+</div>
+
+<!-- Модальне вікно Входу -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('loginModal')">&times;</span>
+        <h3>Вхід в акаунт</h3>
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Пароль">
+        <button onclick="login()" style="width:100%; background:var(--primary); color:white; border:none; padding:10px; margin-top:10px;">Увійти</button>
+    </div>
+</div>
+
+<!-- Модальне вікно Реєстрації -->
+<div id="regModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('regModal')">&times;</span>
+        <h3>Реєстрація</h3>
+        <input type="text" id="regName" placeholder="Ваше ім'я">
+        <input type="email" id="regEmail" placeholder="Email">
+        <input type="password" id="regPassword" placeholder="Пароль">
+        <button onclick="register()" style="width:100%; background:var(--primary); color:white; border:none; padding:10px; margin-top:10px;">Зареєструватися</button>
+    </div>
+</div>
+
+<script>
+let currentUser = null;
+let selectedProduct = null;
+
+async function init() {
+    loadProducts();
+    checkAuth();
+    
+    // Встановити завтрашню дату як замовчувану для доставки
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('deliveryDate').value = tomorrow.toISOString().split('T')[0];
+}
+
+async function checkAuth() {
+    const res = await fetch('/api/me');
+    if (res.ok) {
+        currentUser = await res.json();
+        renderNav();
+        if (currentUser.role === 'admin') loadAdminData();
+        else loadMyOrders();
+    }
+}
+
+function renderNav() {
+    const nav = document.getElementById('navAuth');
+    if (currentUser) {
+        nav.innerHTML = `Вітаємо, <b>${currentUser.name}</b>! 
+            <button onclick="logout()" style="background:#6c757d;">Вийти</button>`;
+        if (currentUser.role === 'admin') {
+            document.getElementById('adminSection').style.display = 'block';
+        } else {
+            document.getElementById('userOrders').style.display = 'block';
+        }
+    } else {
+        nav.innerHTML = `
+            <button onclick="openModal('loginModal')">Увійти</button>
+            <button onclick="openModal('regModal')">Реєстрація</button>`;
+        document.getElementById('adminSection').style.display = 'none';
+        document.getElementById('userOrders').style.display = 'none';
+    }
+}
+
+async function loadProducts() {
+    const res = await fetch('/api/products');
+    const products = await res.json();
+    const grid = document.getElementById('productsGrid');
+    
+    grid.innerHTML = products.map(p => `
+        <div class="card">
+            <img src="${p.image}" alt="${p.title}">
+            <h3>${p.title}</h3>
+            <div class="price">${p.price} грн</div>
+            <button onclick="openOrderModal('${p.title}', ${p.price})">Замовити</button>
+            ${currentUser && currentUser.role === 'admin' ? 
+                `<br><button class="btn-delete" onclick="deleteProduct(${p.id})">Видалити товар</button>` : ''}
+        </div>
+    `).join('');
+}
+
+function openOrderModal(title, price) {
+    if (!currentUser) return alert('Будь ласка, увійдіть в акаунт для замовлення!');
+    selectedProduct = { title, price };
+    document.getElementById('orderProductInfo').innerText = `${title} — ${price} грн`;
+    openModal('orderModal');
+}
+
+function toggleDeliveryInputs() {
+    const type = document.getElementById('deliveryType').value;
+    const label = document.getElementById('addressLabel');
+    const input = document.getElementById('deliveryAddress');
+    
+    if (type.includes('Кур\'єр')) {
+        label.innerText = 'Повна адреса доставки (місто, вулиця, будинок, квартира):';
+        input.placeholder = 'м. Київ, вул. Хрещатик, буд. 1, кв. 10';
+    } else {
+        label.innerText = 'Номер відділення / поштомату та місто:';
+        input.placeholder = 'м. Київ, Відділення №15';
+    }
+}
+
+async function submitOrder() {
+    const deliveryAddress = document.getElementById('deliveryAddress').value;
+    if (!deliveryAddress) return alert('Будь ласка, вкажіть адресу або номер відділення!');
+
+    const orderData = {
+        items: [{ title: selectedProduct.title, price: selectedProduct.price }],
+        totalPrice: selectedProduct.price,
+        deliveryType: document.getElementById('deliveryType').value,
+        deliveryAddress: deliveryAddress,
+        deliveryDate: document.getElementById('deliveryDate').value,
+        deliveryTime: document.getElementById('deliveryTime').value,
+        paymentMethod: document.getElementById('paymentMethod').value
+    };
+
+    const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(orderData)
+    });
+
+    if (res.ok) {
+        alert('Дякуємо! Ваше замовлення успішно прийнято.');
+        closeModal('orderModal');
+        if (currentUser.role === 'admin') loadAdminData();
+        else loadMyOrders();
+    } else {
+        alert('Помилка оформлення замовлення');
+    }
+}
+
+async function deleteProduct(id) {
+    if (!confirm('Ви дійсно хочете видалити цей товар?')) return;
+    const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+        loadProducts();
+    } else {
+        alert('Помилка при видаленні товару');
+    }
+}
+
+async function loadMyOrders() {
+    const res = await fetch('/api/my-orders');
+    const orders = await res.json();
+    document.getElementById('myOrdersList').innerHTML = orders.map(o => `
+        <div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
+            <p>Замовлення №<b>${o.id}</b> — <b>${o.total_price} грн</b></p>
+            <small>
+                Доставка: ${o.delivery_type} (${o.delivery_address})<br>
+                Час: ${o.delivery_date} о ${o.delivery_time}<br>
+                Оплата: ${o.payment_method}
+            </small>
+        </div>
+    `).join('');
+}
+
+// Авторизація
+async function register() {
+    const name = document.getElementById('regName').value;
+    const email = document.getElementById('regEmail').value;
+    const password = document.getElementById('regPassword').value;
+    const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, email, password })
+    });
+    if (res.ok) { closeModal('regModal'); checkAuth(); } 
+    else alert('Помилка реєстрації');
+}
+
+async function login() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ email, password })
+    });
+    if (res.ok) { closeModal('loginModal'); checkAuth(); loadProducts(); } 
+    else alert('Невірний логин або пароль');
+}
+
+async function logout() {
+    await fetch('/api/logout');
+    currentUser = null;
+    location.reload();
+}
+
+// Завантаження даних адміна
+async function loadAdminData() {
+    const res = await fetch('/api/admin/orders');
+    const orders = await res.json();
+    document.getElementById('adminOrdersTable').innerHTML = orders.map(o => `
+        <tr>
+            <td>${o.id}</td>
+            <td>${o.name} <br><small>${o.email}</small></td>
+            <td><b>${o.total_price} грн</b></td>
+            <td>${o.delivery_type}</td>
+            <td>${o.delivery_address}</td>
+            <td>${o.delivery_date} <br>${o.delivery_time}</td>
+            <td>${o.payment_method}</td>
+        </tr>
+    `).join('');
+}
+
+async function addProduct() {
+    const title = document.getElementById('newTitle').value;
+    const price = document.getElementById('newPrice').value;
+    const image = document.getElementById('newImage').value;
+    if (!title || !price || !image) return alert('Заповніть усі поля!');
+    
+    await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ title, price, image })
+    });
+    
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newPrice').value = '';
+    document.getElementById('newImage').value = '';
+    
+    loadProducts();
+}
+
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+init();
+</script>
+
+</body>
+</html>
